@@ -54,6 +54,78 @@ def update_env_file(client_id: str, client_secret: str, refresh_token: str):
     print(f"✅ Updated local .env with YouTube OAuth credentials.")
 
 
+def _get_git_token():
+    token = os.environ.get("GITHUB_TOKEN") or ""
+    if not token:
+        try:
+            import subprocess
+            proc = subprocess.run(
+                ["git", "credential", "fill"],
+                input="protocol=https\nhost=github.com\n",
+                capture_output=True,
+                text=True
+            )
+            for line in proc.stdout.splitlines():
+                if line.startswith("password="):
+                    token = line.split("=", 1)[1].strip()
+                    break
+        except Exception:
+            pass
+    return token
+
+
+def sync_secrets_to_github(client_id: str, client_secret: str, refresh_token: str):
+    """Directly uploads YouTube credentials to GitHub Actions Secrets via GitHub API and PyNaCl."""
+    try:
+        import requests
+        from base64 import b64encode
+        from nacl import encoding, public
+
+        # Get GitHub Token from environment or credential helper
+        gh_token = _get_git_token()
+        owner = "zaars59208"
+        repo = "youtube-motivational"
+        headers = {
+            "Authorization": f"token {gh_token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+
+        # 1. Fetch public key
+        r_key = requests.get(f"https://api.github.com/repos/{owner}/{repo}/actions/secrets/public-key", headers=headers)
+        if r_key.status_code != 200:
+            print(f"⚠️ Could not fetch GitHub public key (HTTP {r_key.status_code}). Please add secrets manually.")
+            return
+
+        data = r_key.json()
+        key_id = data["key_id"]
+        public_key_b64 = data["key"]
+        public_key_obj = public.PublicKey(public_key_b64.encode("utf-8"), encoding.Base64Encoder())
+        sealed_box = public.SealedBox(public_key_obj)
+
+        secrets_to_upload = {
+            "YOUTUBE_CLIENT_ID": client_id,
+            "YOUTUBE_CLIENT_SECRET": client_secret,
+            "YOUTUBE_REFRESH_TOKEN": refresh_token,
+        }
+
+        print("\n🔄 Automatically syncing YouTube credentials to GitHub Secrets...")
+        for name, val in secrets_to_upload.items():
+            enc = sealed_box.encrypt(val.encode("utf-8"))
+            enc_b64 = b64encode(enc).decode("utf-8")
+            res = requests.put(
+                f"https://api.github.com/repos/{owner}/{repo}/actions/secrets/{name}",
+                headers=headers,
+                json={"encrypted_value": enc_b64, "key_id": key_id}
+            )
+            if res.status_code in (201, 204):
+                print(f"  ✅ Uploaded {name} to GitHub Secrets")
+            else:
+                print(f"  ⚠️ Failed to upload {name} (HTTP {res.status_code})")
+        print("🎉 GitHub Actions is now fully authorized to upload directly to your YouTube channel!")
+    except Exception as e:
+        print(f"⚠️ Automatic GitHub secret sync error: {e}")
+
+
 def main():
     print("=" * 70)
     print("  YouTube Channel OAuth 2.0 Setup (One-Time Token Generator)")
@@ -198,21 +270,8 @@ def main():
     # Save to local .env
     update_env_file(client_id, client_secret, refresh_token)
 
-    # Attempt automatic sync to GitHub Secrets via gh CLI
-    try:
-        import subprocess
-        print("\n🔄 Syncing new YOUTUBE_REFRESH_TOKEN to GitHub Secrets...")
-        res = subprocess.run(
-            ["gh", "secret", "set", "YOUTUBE_REFRESH_TOKEN", "--body", refresh_token],
-            capture_output=True,
-            text=True,
-        )
-        if res.returncode == 0:
-            print("✅ Successfully updated YOUTUBE_REFRESH_TOKEN in GitHub Repository Secrets!")
-        else:
-            print("⚠️  Could not auto-sync to GitHub Secrets via gh CLI. Please update manually if needed.")
-    except Exception:
-        pass
+    # Auto-sync to GitHub Secrets via direct GitHub API
+    sync_secrets_to_github(client_id, client_secret, refresh_token)
 
     print("\n" + "-" * 70)
     print("💡 CRITICAL: To prevent this token from expiring after 7 days:")
@@ -220,7 +279,7 @@ def main():
     print("2. Under 'Publishing status', click 'PUBLISH APP' to change status from 'Testing' to 'In production'.")
     print("   (Personal use apps in Production get permanent tokens that never expire!)")
     print("-" * 70)
-    print("\nSetup complete! You can now run `py news_pipeline.py` or trigger GitHub Actions.")
+    print("\nSetup complete! You can now run `python pipeline.py` or trigger GitHub Actions.")
 
 
 if __name__ == "__main__":
