@@ -180,7 +180,19 @@ def transcribe_audio_groq(audio_path: str, srt_output_path: str = None) -> dict:
     config.reload()
     api_key = config.GROQ_API_KEY
     if not api_key:
-        raise ValueError("GROQ_API_KEY is not configured in .env or user_settings.json.")
+        print("[youtube_extractor] [INFO] No GROQ_API_KEY provided. Skipping Whisper transcription and subtitles (Pexels-only mode).")
+        if not srt_output_path:
+            srt_output_path = os.path.join(config.TEMP_DIR, "subtitles.srt")
+        os.makedirs(os.path.dirname(srt_output_path), exist_ok=True)
+        with open(srt_output_path, "w", encoding="utf-8") as sf:
+            sf.write("")
+        return {
+            "transcript": "",
+            "srt_path": srt_output_path,
+            "transcription_time_sec": 0.0,
+            "segments": [],
+            "words": [],
+        }
 
     client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=api_key)
 
