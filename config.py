@@ -108,6 +108,7 @@ FONT_PATH   = os.path.join(ASSETS_DIR, "font.ttf")
 INTRO_PATH  = os.path.join(ASSETS_DIR, "intro.mp4")
 OUTRO_PATH  = os.path.join(ASSETS_DIR, "outro.mp4")
 MUSIC_DIR   = os.path.join(ASSETS_DIR, "music")
+BG_MUSIC_PATH = os.path.join(MUSIC_DIR, "background.wav")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(TEMP_DIR, exist_ok=True)

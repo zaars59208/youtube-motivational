@@ -6,9 +6,9 @@ from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 import google.auth.transport.requests
 
-TEMPLATE_PATH = r"d:\youtube-automation-flows\motivational-flow\temp\clean_v1_plate.jpg"
+TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "assets", "clean_v1_plate.jpg")
 FONT_TREBUCHET = r"C:\Windows\Fonts\trebucbd.ttf"
-OUTPUT_DIR = r"d:\youtube-automation-flows\motivational-flow\output\thumbnails"
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output", "thumbnails")
 
 COLOR_YELLOW = (254, 218, 98, 255)
 COLOR_RED = (244, 52, 56, 255)

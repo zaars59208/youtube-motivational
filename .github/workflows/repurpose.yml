@@ -95,6 +95,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install --upgrade yt-dlp
+          pip install numpy imageio_ffmpeg gtts
 
       - name: Prepare YouTube Cookies (Optional)
         env:
